@@ -107,7 +107,7 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
   overflow: hidden;
   transform-origin: 50% 100%;
   will-change: transform;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
   user-select: text;
 }
 .card.behind { pointer-events: none; }
@@ -133,6 +133,7 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
 
 .card-body {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom; /* scroller: browsers stop reading .card's touch-action here */
   padding: 10px 22px 26px;
   scrollbar-width: thin;
 }
@@ -321,8 +322,7 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
 
 @media (max-width: 520px) {
   .brand-name { display: none; }
-  .card { inset: 0 0 12px; border-radius: 20px; }
-  .stage { padding: 0 12px; }
+  .card { inset: 0 12px 12px; border-radius: 20px; }
   .card-head { padding: 14px 18px 0; }
   .card-body { padding: 8px 18px 22px; }
   .card-body p, .card-body li { font-size: 16px; }
