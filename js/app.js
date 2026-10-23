@@ -166,7 +166,7 @@
       <h1>Learn C, from zero to pro.</h1>
       <p>${conceptTotal} bite-sized cards across ${COURSE.length} modules. Each card covers one concept, with a real program you can compile, its exact output, and the pitfalls professionals watch for.</p>
       <div class="roadmap">${lv}</div>
-      <p><b>How it works:</b> swipe left for the next card and right to go back (or use the arrow keys). Mark cards as learned, take the checkpoint at the end of each module, and open the ☰ course map to jump anywhere. Your progress is saved in this browser.</p>
+      <p><b>How it works:</b> swipe left for the next card and right to go back (or use the arrow keys). Cards you swipe past count as learned. Take the checkpoint at the end of each module, and open the ☰ course map to jump anywhere. Your progress is saved in this browser.</p>
       <button class="start-btn" data-start>${resume ? "Continue where you left off →" : "Start learning →"}</button>
     </div>`;
   }
@@ -181,39 +181,36 @@
     return headHTML(d, "The end") + `<div class="card-body welcome">
       <div class="big-c">🏆</div>
       <h1>You made it through the deck.</h1>
-      <p>Concepts marked learned: <b>${learned} / ${conceptTotal}</b><br>
+      <p>Concepts learned: <b>${learned} / ${conceptTotal}</b><br>
       Checkpoint answers correct: <b>${correct} / ${total || 0}</b></p>
       <p>Reading gets you started, but writing code is what makes you a pro. Pick a project from the “road to pro” card, compile with <code>-Wall -Wextra -fsanitize=address,undefined</code>, and build something real.</p>
       <button class="start-btn" data-restart>Back to the beginning</button>
     </div>`;
   }
 
-  function buildCard(i, depth) {
+  function buildCard(i, peek) {
     const d = deck[i];
     const el = document.createElement("article");
-    el.className = "card" + (depth ? ` behind depth-${depth}` : "") + (d.type === "intro" ? " intro" : "");
+    el.className = "card" + (peek ? ` behind peek-${peek}` : "") + (d.type === "intro" ? " intro" : "");
     if (d.key && state.learned.has(d.key)) el.classList.add("is-learned");
     const lvl = d.mi != null ? COURSE[d.mi].level : "Intermediate";
     el.dataset.lvl = lvl;
-    el.style.zIndex = String(10 - depth);
-    el.setAttribute("aria-hidden", depth ? "true" : "false");
+    el.setAttribute("aria-hidden", peek ? "true" : "false");
     const fn = { welcome: welcomeHTML, intro: introHTML, concept: conceptHTML, quiz: quizHTML, finish: finishHTML }[d.type];
     el.innerHTML = fn(d);
-    if (depth === 0) wireCard(el, d);
+    if (!peek) wireCard(el, d);
     return el;
   }
 
   function render(enterFrom) {
     stage.innerHTML = "";
-    for (let depth = 2; depth >= 0; depth--) {
-      const i = state.idx + depth;
-      if (i < deck.length) stage.appendChild(buildCard(i, depth));
-    }
+    if (state.idx > 0) stage.appendChild(buildCard(state.idx - 1, "prev"));
+    if (state.idx < deck.length - 1) stage.appendChild(buildCard(state.idx + 1, "next"));
+    stage.appendChild(buildCard(state.idx));   // current card stays last: go() and nudge() rely on it
     const top = stage.lastElementChild;
     if (enterFrom) {
-      top.style.transform = enterFrom === "left"
-        ? "translateX(-115%) rotate(-10deg)" : "translateY(16px) scale(.97)";
-      top.style.opacity = enterFrom === "left" ? "1" : "0";
+      top.style.transform = "translateY(16px) scale(.97)";
+      top.style.opacity = "0";
       requestAnimationFrame(() => requestAnimationFrame(() => {
         top.classList.add("anim");
         top.style.transform = "";
@@ -223,30 +220,10 @@
     updateChrome();
   }
 
-  /* ---------------- chrome (progress, buttons, hash) ---------------- */
+  /* ---------------- chrome (progress, hash) ---------------- */
   function updateChrome() {
-    const d = deck[state.idx];
     $("#counter").textContent = `${state.idx + 1} / ${deck.length}`;
     $("#progressBar").style.width = `${(state.idx / (deck.length - 1)) * 100}%`;
-    $("#prevBtn").disabled = state.idx === 0;
-    $("#nextBtn").disabled = state.idx === deck.length - 1;
-    const lb = $("#learnBtn");
-    const txt = lb.querySelector(".learn-text");
-    if (d.type === "concept") {
-      const on = state.learned.has(d.key);
-      lb.disabled = false;
-      lb.setAttribute("aria-pressed", String(on));
-      txt.textContent = on ? "Learned" : "Mark as learned";
-    } else if (d.type === "quiz") {
-      const done = state.learned.has(d.key);
-      lb.disabled = true;
-      lb.setAttribute("aria-pressed", String(done));
-      txt.textContent = done ? "Checkpoint done" : "Answer every question";
-    } else {
-      lb.disabled = true;
-      lb.setAttribute("aria-pressed", "false");
-      txt.textContent = d.type === "finish" ? "Course complete" : "Swipe to begin";
-    }
     const h = `#${state.idx + 1}`;
     if (location.hash !== h) history.replaceState(null, "", h);
     save();
@@ -258,20 +235,18 @@
       if (!state.busy) nudge(delta);
       return;
     }
-    $("#hint").style.visibility = "hidden";
-    if (delta > 0) {
-      state.busy = true;
-      const top = stage.lastElementChild;
-      const behind = top.previousElementSibling;
-      top.classList.add("anim");
-      top.style.transform = "translateX(-125%) rotate(-12deg)";
-      top.style.opacity = "0";
-      if (behind) { behind.classList.add("anim"); behind.classList.remove("depth-1"); behind.style.opacity = "1"; }
-      setTimeout(() => { state.idx = next; render(); state.busy = false; }, 260);
-    } else {
-      state.idx = next;
-      render(delta === -1 ? "left" : "fade");
-    }
+    const d = deck[state.idx];
+    if (delta > 0 && d.type === "concept") state.learned.add(d.key);
+    // slide the current card into the neighbour slot and the neighbour into the centre
+    state.busy = true;
+    const top = stage.lastElementChild;
+    const incoming = stage.querySelector(delta > 0 ? ".peek-next" : ".peek-prev");
+    top.classList.add("anim");
+    top.classList.add("behind", delta > 0 ? "peek-prev" : "peek-next");
+    top.style.transform = "";
+    incoming.classList.add("anim");
+    incoming.classList.remove("behind", "peek-prev", "peek-next");
+    setTimeout(() => { state.idx = next; render(); state.busy = false; }, 320);
   }
 
   function jump(i) {
@@ -385,7 +360,7 @@
       dx = mx;
       const edge = (dx > 0 && state.idx === 0) || (dx < 0 && state.idx === deck.length - 1);
       const x = edge ? dx * 0.25 : dx;
-      el.style.transform = `translateX(${x}px) rotate(${x / 22}deg)`;
+      el.style.transform = `translateX(${x}px)`;
       e.preventDefault();
     });
     const end = (e) => {
@@ -466,20 +441,11 @@
     save();
   }
 
-  function toggleLearned() {
-    const d = deck[state.idx];
-    if (d.type !== "concept") return;
-    if (state.learned.has(d.key)) state.learned.delete(d.key);
-    else { state.learned.add(d.key); toast("Marked as learned ✓"); }
-    const top = stage.lastElementChild;
-    if (top) top.classList.toggle("is-learned", state.learned.has(d.key));
-    updateChrome();
-  }
-
   /* ---------------- events ---------------- */
-  $("#prevBtn").addEventListener("click", () => go(-1));
-  $("#nextBtn").addEventListener("click", () => go(1));
-  $("#learnBtn").addEventListener("click", toggleLearned);
+  stage.addEventListener("click", (e) => {
+    const peek = e.target.closest(".behind");
+    if (peek) go(peek.classList.contains("peek-next") ? 1 : -1);
+  });
   $("#menuBtn").addEventListener("click", openDrawer);
   $("#closeDrawer").addEventListener("click", closeDrawer);
   scrim.addEventListener("click", closeDrawer);
@@ -503,7 +469,6 @@
     if (drawer.classList.contains("open")) return;
     if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); go(1); }
     else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(-1); }
-    else if (e.key === "l" || e.key === "L") toggleLearned();
     else if (e.key === "m" || e.key === "M") openDrawer();
     else if (e.key === "Home") jump(0);
     else if (e.key === "End") jump(deck.length - 1);
@@ -520,6 +485,5 @@
   if (fromHash >= 1 && fromHash <= deck.length) state.idx = fromHash - 1;
   else if (saved.idx > 0 && saved.idx < deck.length) state.idx = 0; // show welcome with "continue"
   state.idx = Math.max(0, Math.min(deck.length - 1, state.idx));
-  if (state.idx === 0) $("#hint").style.visibility = "visible";
   render();
 })();

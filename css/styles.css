@@ -94,11 +94,11 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
 /* ---------- stage & card stack ---------- */
 .stage {
   position: relative; flex: 1; min-height: 0;
-  margin: 4px auto 0; width: 100%; max-width: 760px;
-  padding: 0 16px;
+  margin: 4px auto env(safe-area-inset-bottom); width: 100%; max-width: 760px;
+  overflow-x: clip; /* hide neighbours beyond the stage on wide screens */
 }
 .card {
-  position: absolute; inset: 0 16px 14px;
+  position: absolute; inset: 0 48px 14px;
   background: var(--card);
   border: 1px solid var(--card-edge);
   border-radius: 22px;
@@ -110,10 +110,11 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
   touch-action: pan-y pinch-zoom;
   user-select: text;
 }
-.card.behind { pointer-events: none; }
-.card.behind > * { visibility: hidden; }
-.card.depth-1 { transform: translateY(10px) scale(.965); opacity: .9; }
-.card.depth-2 { transform: translateY(20px) scale(.93); opacity: .6; }
+/* neighbours peek in from the sides to show you can swipe; tap one to move */
+.card.behind { cursor: pointer; user-select: none; opacity: .55; }
+.card.behind > * { pointer-events: none; }
+.card.peek-prev { transform-origin: 100% 50%; transform: translateX(calc(-100% - 12px)) scale(.94); }
+.card.peek-next { transform-origin: 0 50%; transform: translateX(calc(100% + 12px)) scale(.94); }
 .card.anim { transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .32s; }
 .card.dragging { transition: none; cursor: grabbing; }
 
@@ -256,28 +257,6 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
 .score.show { display: block; }
 .retry { margin-left: 10px; border: 1px solid var(--card-edge); background: var(--card); border-radius: 10px; padding: 5px 12px; font-size: 13px; font-weight: 500; }
 
-/* ---------- controls ---------- */
-.controls {
-  flex: none; display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 4px 16px 0; max-width: 760px; width: 100%; margin: 0 auto;
-}
-.ctrl {
-  height: 50px; min-width: 50px; border-radius: 16px; border: 1px solid var(--card-edge);
-  background: var(--card); display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: transform .12s, background .15s;
-}
-.ctrl:active { transform: scale(.95); }
-.ctrl:disabled { opacity: .4; cursor: default; }
-.ctrl.primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
-.ctrl.learn { flex: 1; max-width: 300px; padding: 0 16px; font-weight: 600; font-size: 15px; color: var(--ink-soft); }
-.learn-icon {
-  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid currentColor; font-size: 12px; line-height: 1;
-}
-.ctrl.learn[aria-pressed="true"] { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); background: color-mix(in srgb, var(--good) 9%, var(--card)); }
-.ctrl.learn[aria-pressed="true"] .learn-icon { background: var(--good); border-color: var(--good); color: #fff; }
-.hint { text-align: center; font-size: 12px; color: var(--ink-faint); margin: 8px 0 max(10px, env(safe-area-inset-bottom)); flex: none; }
-
 /* ---------- drawer ---------- */
 .scrim { position: fixed; inset: 0; background: rgba(8, 10, 14, .45); z-index: 20; opacity: 0; transition: opacity .25s; }
 .scrim.show { opacity: 1; }
@@ -309,7 +288,7 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
 .reset:hover { color: var(--bad); border-color: var(--bad); }
 
 .toast {
-  position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 20px); opacity: 0;
+  position: fixed; left: 50%; bottom: max(40px, env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0;
   background: var(--ink); color: var(--card); padding: 9px 16px; border-radius: 12px; font-size: 14px;
   transition: opacity .2s, transform .2s; pointer-events: none; z-index: 30;
 }
@@ -322,13 +301,11 @@ code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, M
 
 @media (max-width: 520px) {
   .brand-name { display: none; }
-  .card { inset: 0 12px 12px; border-radius: 20px; }
+  .card { inset: 0 28px 12px; border-radius: 20px; }
   .card-head { padding: 14px 18px 0; }
   .card-body { padding: 8px 18px 22px; }
   .card-body p, .card-body li { font-size: 16px; }
   .code pre { font-size: 12.8px; padding: 12px 14px 14px; }
-  .ctrl.learn .learn-text { font-size: 14px; }
-  .hint { margin-top: 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .card.anim, .drawer, .progress-bar { transition: none !important; }
